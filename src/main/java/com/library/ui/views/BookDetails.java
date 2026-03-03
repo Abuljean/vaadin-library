@@ -15,11 +15,16 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.BeforeEvent;
 import com.vaadin.flow.router.HasUrlParameter;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.spring.security.AuthenticationContext;
+import jakarta.annotation.security.PermitAll;
+import org.springframework.security.core.userdetails.UserDetails;
 
 
 @Route("books")
+@PermitAll
 public class BookDetails extends VerticalLayout implements HasUrlParameter<Long> {
     private final MockBookRepository bookRepo;
+    private final AuthenticationContext authContext;
 
     private Book book;
     private final BookForm bookForm = new BookForm();
@@ -30,8 +35,9 @@ public class BookDetails extends VerticalLayout implements HasUrlParameter<Long>
 
     private final ViewToolbar toolbar = new ViewToolbar("Book Details", backBtn);
 
-    public BookDetails(MockBookRepository bookRepo) {
+    public BookDetails(MockBookRepository bookRepo, AuthenticationContext authContext) {
         this.bookRepo = bookRepo;
+        this.authContext = authContext;
 
         configureLayout();
         configureButtons();
@@ -53,7 +59,16 @@ public class BookDetails extends VerticalLayout implements HasUrlParameter<Long>
     private void configureLayout() {
         setIsEditing(false);
         HorizontalLayout actions = new HorizontalLayout();
-        actions.add(editBtn, deleteBtn);
+
+        authContext.getAuthenticatedUser(UserDetails.class).ifPresent(user -> {
+            boolean isAdmin = user.getAuthorities().stream().anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals("ROLE_ADMIN"));
+            if (isAdmin) {
+                actions.add(editBtn, deleteBtn);
+            } else {
+                editBtn.setEnabled(false);
+                deleteBtn.setEnabled(false);
+            }
+        });
 
         add(toolbar, bookForm, actions);
     }

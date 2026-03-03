@@ -10,15 +10,21 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.*;
+import com.vaadin.flow.spring.security.AuthenticationContext;
+import jakarta.annotation.security.PermitAll;
+import org.springframework.security.core.userdetails.UserDetails;
 
 @Route("books")
 @PageTitle("Catalogue")
 @Menu(order = 1, icon = "vaadin:book", title = "Catalogue")
+@PermitAll
 public class Books extends VerticalLayout implements BeforeEnterObserver {
     private final MockBookRepository bookRepo;
+    private final AuthenticationContext authContext;
 
-    public Books(MockBookRepository bookRepo) {
+    public Books(MockBookRepository bookRepo, AuthenticationContext authContext) {
         this.bookRepo = bookRepo;
+        this.authContext = authContext;
 
         BookGrid grid = new BookGrid(this.bookRepo.findAll());
 
@@ -30,6 +36,14 @@ public class Books extends VerticalLayout implements BeforeEnterObserver {
         Button createBtn = new Button("Add New Book", VaadinIcon.PLUS.create());
         createBtn.addClickListener(e -> {
             getUI().ifPresent(ui -> ui.navigate("books/new"));
+        });
+
+        authContext.getAuthenticatedUser(UserDetails.class).ifPresent(user -> {
+            boolean isAdmin = user.getAuthorities().stream().anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals("ROLE_ADMIN"));
+            if (!isAdmin) {
+                createBtn.setVisible(false);
+                createBtn.setEnabled(false);
+            }
         });
 
         // Eager search bar (refreshes data on keystroke)
